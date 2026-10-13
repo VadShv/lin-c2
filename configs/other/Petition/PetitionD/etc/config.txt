@@ -1,0 +1,35 @@
+﻿; Number of threads working for transaction and service socket.
+numberOfServiceThreads = 10
+
+; Port number for world server
+worldPort = 2107
+
+; Port number for petition client
+servicePort = 2109
+
+; Run as test mode
+runMode = 0
+
+; WebAuthD address
+webAuthServer = "127.0.0.1"
+
+; WebAuthD port
+webAuthPort = 2108
+
+; Number of WebAuthD connections
+numberOfWebAuthConnections = 0
+
+; Log directory
+logDirectory = "log"
+
+; status refresh interval(seconds)
+statusRefresh = 1
+
+; Number of connections to petition database
+numberOfPetitionDBConnections = 12
+
+; petition database connection string
+
+; number of games to support, should be consistent with game_title table
+numberGames = 2
+petitionDatabase = "0xF6DBBAA8A7C57B6F418E95A7CFCBB4DAF09B9A5E39B2FCA779D4A1E88B44D7135C07602E91F8A1C6FFF4309914A34F70F582BF132DB8EDAECE72C0DB2EE5DBA66ECF5994D7DEABF0030DE6A7EF98FCFE7F7A3F316C96270FDC26AF901EA05E103FF2BBDE07E242E5423A5FDFA287F5D852B19A84B87F6C07E96034D3B4C21363"

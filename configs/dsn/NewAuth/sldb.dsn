@@ -1,0 +1,6 @@
+[ODBC]
+DRIVER=SQL Server
+SERVER=localhost,1433
+DATABASE=lin2db
+UID=gamma
+PWD=lineage2pwd

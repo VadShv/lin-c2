@@ -1,0 +1,19 @@
+# Secrets and credentials
+*.pwd
+*.key
+secrets/
+
+# Temporary files
+*.tmp
+*.log
+*.pml
+*.csv
+
+# Compiled files
+*.exe
+*.dll
+*.obj
+
+# OS files
+Thumbs.db
+.DS_Store
