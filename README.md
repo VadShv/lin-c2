@@ -1,132 +1,129 @@
-# Lineage 2 Chronicle 2 — Official C++ Server Setup
+# Lineage 2 Chronicle 2: рабочий стенд SABINE
 
-## Overview
+Репозиторий хранит настройки, скрипты запуска, генератор исправлений совместимости с клиентом C2 485 и подробный журнал восстановления нативной Windows-сборки Lineage 2. Это не Java/L2J-эмулятор и не полный игровой дистрибутив: исходные серверные архивы, клиент, базы данных и секреты хранятся отдельно.
 
-Setup configuration for an official NCSoft Lineage 2 Chronicle 2 (C2) server
-(original C++ build, not L2J) running on a Windows Server 2019 VM with SQL Server 2019 Express.
+**Подтверждённый результат:** 14 октября 2026 года в 00:23 МСК пользователь сообщил «Мир загрузился» после выбора персонажа и нажатия Start. Вход через графический клиент подтверждён; бой, квесты, сохранение прогресса после выхода и восстановление после полной перезагрузки пока не проверены.
 
-## VM Configuration
+## Навигация
 
-- **OS**: Windows Server 2019 Standard, 64-bit
-- **Resources**: 2 vCPU, 4 GB RAM, ~33 GB disk
-- **SQL Server**: 2019 Express, instance `SQLEXPRESS`, TCP port 1433, mixed mode auth
-- **DEP**: Disabled system-wide (`bcdedit /set nx AlwaysOff`)
-- **AutoIt**: Installed at `C:\Program Files (x86)\AutoIt3\AutoIt3.exe`
-- **PsTools**: Installed at `C:\pstools\`
+- **[Состояние и журнал](docs/STATUS.md):** последовательность исправлений, результаты проверок, хеши и резервные копии.
+- **[Эксплуатация и восстановление](docs/RUNBOOK.md):** управление сервером, подготовка окружения, сборка исправления и план восстановления.
+- **[Диагностика](docs/TROUBLESHOOTING.md):** Access failed после Agree, заставка после Start, ODBC, регистрация мира и сбор сетевого следа.
+- **[Безопасность](docs/SECURITY.md):** исключённые данные, работа с паролями, ограничения firewall и риски старой сборки.
+- **[Архитектура](docs/ARCHITECTURE.md):** процессы, порты, базы и протокольные изменения.
+- **[Манифест](docs/artifacts.json):** полные SHA256 подтверждённых и экспериментальных бинарников.
+- **[Проверки публикации](docs/VALIDATION.md):** offline-тесты, воспроизводимость артефактов и явные ограничения.
+- **[Архив Imani](docs/STATUS_IMANI_ARCHIVE.md):** исторические наблюдения; не инструкция для текущего сервера.
 
-## Databases
+## Текущая конфигурация
 
-7 databases created with SQL auth login `gamma` (db_owner on all):
+| Параметр | Значение |
+|---|---|
+| Стенд | SABINE, Windows, Selectel |
+| Публичный адрес | `176.53.225.183` |
+| Внутренний адрес ВМ | `192.168.0.3` |
+| Межсерверные соединения | `127.0.0.1` |
+| Мир | Bartz, `WorldId=1`, `lin2db.dbo.server.id=1` |
+| Игровые публичные порты | TCP `2106` и `7777` |
+| Каталог сервера | `C:\L2Server` |
+| Каталог управления | `C:\l2work` |
+| SQL | Локальный SQL Server Express, экземпляр `SQLEXPRESS`, TCP `1433` |
+| Запуск | Задача планировщика `L2Supervisor`, session 0 |
+| Порядок запуска | `L2LogD → L2AuthD → Cached → L2Server → L2NPC` |
+| Клиент | C2, фактический протокол `485` |
 
-| Database   | Used by          |
-|------------|------------------|
-| lin2db     | L2AuthD          |
-| lin2world  | CacheD, L2Server |
-| lin2comm   | CacheD           |
-| lin2log    | L2LogD           |
-| lin2report | L2LogD (BBS)     |
-| lin2user   | CacheD           |
-| petition   | PetitionD        |
+Адреса в шаблонах относятся к этому тестовому стенду, а не к любому новому серверу. При переносе нужно согласованно изменить рекламу мира в SQL, настройки AuthD и `ServerAddr` в клиентском `l2.ini`.
 
-## Service Start Order
+## Что исправлено
 
-```
-L2AuthD → CacheD → L2LogD → L2Server → L2NPC → PetitionD
-```
+- **Agree / Access failed:** реальный C2-клиент запрашивает список миров формата `4`. Старый AuthD отвергал этот запрос; рабочий файл заменён поставляемым вариантом `L2AuthD483.exe`.
+- **Настройка AuthD:** восстановлен `serverExPort=2106`; IP больше не попадает в поле порта. Регулярные выражения привязаны к началу ключа, чтобы `encrypt` не изменял `NewEncrypt`.
+- **Регистрация мира:** согласованы `WorldId=1`, строка Bartz, `SupportReconnect=true` и `reconnectauth=1`. Отсутствующая строка `worldstatus` создавалась со статусом `0`; после подключения AuthD перевёл её в `1`.
+- **Номер протокола:** файл с именем `L2Server483.exe` фактически возвращает `481`, тогда как установленный клиент отправляет `485`. Одной замены этого номера оказалось недостаточно.
+- **Заставка после Start:** генератор добавляет совместимые поля в `CharSelected` и `UserInfo` через отдельную PE-секцию `.c2fix`, с проверкой исходного хеша и машинных инструкций.
+- **Управление процессами:** запуск перенесён из SSH/PsExec session 1 в долгоживущий supervisor. Окна ODBC обрабатываются в той же оконной станции.
+- **Диагностический клиент:** исправлены формат списка миров, позиция XOR checksum AuthD и обновление младшего DWORD игрового ключа.
 
-All executables are **32-bit x86 GUI applications** (PE subsystem 2).
+В базовом исправлении меняются только `CharSelected (0x15)` и `UserInfo (0x04)`. Экспериментальная опция `--npc-extension` подготовлена и проверена в эмуляции, но не установлена и не относится к подтверждённой рабочей конфигурации.
 
-## What's Done
+## Состав репозитория
 
-- [x] RAR archive extracted to `C:\L2Server\` (7605 files)
-- [x] SQL Server 2019 Express installed, TCP/IP enabled on port 1433
-- [x] 7 databases created with schemas imported
-- [x] All `.ini` files configured (IPs to `127.0.0.1`, `DevServerIP` to public IP)
-- [x] Windows Firewall rules for ports 2104, 7777, 2106
-- [x] ODBC DSNs created (32-bit and 64-bit) for all database names
-- [x] File DSNs (`.dsn`) created for all services with absolute paths
-- [x] DEP disabled, VM rebooted
-- [x] Registry configured for all services (`PROJECT_L2\*`, `NCSoft\L2AUTHD`)
-- [x] L2AuthD configured (`encrypt=false`, `DevServerIP=false`)
-
-## Current Blocker: L2LogD Login Dialog
-
-### Problem
-
-L2LogD shows a modal ODBC login dialog (`LogDB Login`, class `#32770`) on startup.
-The dialog has three fields:
-- **File DSN** (control ID 1000) — default value `linworld` (hardcoded in EXE)
-- **Login Name** (control ID 1001) — empty
-- **Password** (control ID 1002) — empty
-
-When `ControlSetText` sets the DSN to an absolute path (e.g. `C:\L2Server\L2LogD\l2logd.dsn`)
-and `ControlClick` clicks OK, the dialog HWND changes — meaning the dialog closes
-and a new one appears. This **does not prove** the OK handler read `linworld`
-instead of the set value; the dialog may simply recreate with hardcoded defaults.
-
-### What's Confirmed
-
-1. **ODBC connection works** from a 32-bit process with the same File DSN:
-   ```
-   FILEDSN=C:\L2Server\L2LogD\l2logd.dsn;UID=gamma;PWD=***;
-   → SUCCESS, connects to lin2log
-   ```
-
-2. **`FILEDSN=linworld` (relative path) fails** with `SQLState=HY000 Native=556
-   Msg=General error: Invalid file dsn ''` — the old `sqlsrv32.dll` driver
-   cannot resolve relative File DSN paths.
-
-3. **L2LogD reads the registry** key `HKLM\SOFTWARE\WOW6432Node\PROJECT_L2\L2LOGD`
-   (confirmed via Windows registry auditing, event ID 4663).
-
-4. **`connStr` registry value** is `REG_BINARY` (256 bytes):
-   - Bytes 0–51: Unicode string `FILEDSN=linworld;UID=;PWD=\0`
-   - Bytes 52–255: 204 bytes of binary data (likely C++ object state)
-
-5. **Changing `connStr`** to use an absolute path did NOT change the dialog's
-   default DSN value — `linworld` is hardcoded in the executable at Unicode
-   offset `0x12216`.
-
-6. **ODBC trace** shows L2LogD calls `SQLDriverConnectW` with
-   `SQL_DRIVER_NOPROMPT`, returns `SQL_ERROR`, and `SQLGetDiagRecW`
-   returns `SQL_NO_DATA_FOUND` (no error diagnostic records).
-
-### What's Not Yet Determined
-
-- Whether `ControlSetText` actually updates the edit control's internal buffer
-  (cross-process `WM_SETTEXT` may set window text property without updating
-  the buffer the OK handler reads).
-- What exact connection string L2LogD passes to `SQLDriverConnectW`
-  (ODBC tracer masks it as `******`).
-- Whether the service reads `connStr` from the registry for the initial
-  connection attempt before showing the dialog.
-
-### Next Steps
-
-1. Run one controlled L2LogD launch with ODBC tracing.
-2. Set absolute DSN path + credentials in dialog, verify by reading back.
-3. Click OK once, capture ODBC trace result (return code, SQLSTATE).
-4. If the connection string is wrong, investigate why the OK handler
-   doesn't read the set values.
-5. If automation cannot resolve this, a manual RDP session may be needed
-   to fill the dialog by hand.
-
-## File Layout
-
-```
-configs/
-  dsn/          — File DSN files (*.dsn) for each service
-  ini/          — INI configuration files
-  other/        — config.txt, run.bat, etc.
-registry/       — Registry exports (.reg)
-  project_l2.reg — HKLM\SOFTWARE\WOW6432Node\PROJECT_L2
-  odbc_ini.reg   — HKLM\SOFTWARE\WOW6432Node\ODBC\ODBC.INI
-  ncsoft.reg     — HKLM\SOFTWARE\WOW6432Node\NCSoft
-scripts/        — Setup and automation scripts
-docs/           — Documentation
+```text
+configs/                      Обезличенные шаблоны INI, DSN и AuthD
+registry/                     Читаемые шаблоны реестра без runtime-дампов
+scripts/
+  build_c2_packetfix.py        Генератор базового/экспериментального PE-исправления
+  deploy_c2_packetfix.ps1      Проверка хешей, backup, отказ при активном игроке
+  build_sabine_client.py       Изменение только system/l2.ini в приватном ZIP
+  l2ver41x.py                  Работа с форматом ресурса Lineage2Ver411
+  probe_c2.py                  Контролируемые протокольные проверки
+  validate_c2_world_packets.py Проверка пакетов по форматам Engine.dll
+  analyze_game_capture.py      Сборка TCP-потоков и расшифровка игровых кадров
+  extract_pktmon_raw.py        Эвристическое восстановление кадров из ETL
+  start_game_capture.ps1       Ограниченная диагностическая запись
+  l2cmd.py                    Команды через очередь supervisor по SSH
+  winrun.py                   Разовые команды PowerShell по SSH
+  l2hash.py                   Классический хеш заданного пароля, без перебора
+  setup.ps1                   Частичная настройка существующего окружения
+  install_supervisor.ps1      Регистрация задачи на остановленном стенде
+  supervisor/                Очередь, запуск/остановка, Win32 и статус
+docs/                         Журнал, эксплуатация, диагностика, безопасность
+tests/                        Offline-тесты без подключения к серверу
+third_party/L2crypt/          MIT-уведомление для формата клиентского ресурса
 ```
 
-## Security Note
+Исторические скрипты `switch_world_c2.ps1` и `align_protocol_485.ps1` сохранены для понимания этапов диагностики. Не запускайте их на исправленном рабочем сервере: они относятся к промежуточной версии и не заменяют генератор полного packet fix.
 
-Database credentials and VM access details are NOT stored in this repository.
-They must be provided separately during deployment.
+## Локальная подготовка инструментов
+
+```bash
+git clone https://github.com/VadShv/lin-c2.git
+cd lin-c2
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+python -m unittest discover -s tests -v
+```
+
+На Windows активация окружения выполняется через `.venv\Scripts\Activate.ps1`. SSH-инструменты получают реквизиты из локальных переменных окружения, проверяют known_hosts по умолчанию и не содержат готового пароля.
+
+## Сборка подтверждённого исправления
+
+Нужен собственный исходный `L2Server483.exe` из установленного комплекта с SHA256:
+
+```text
+E4AA3F0873A2DC19B2130A6C203C0E11A338C634E84C7CCF747A662F7D9911DA
+```
+
+```bash
+python scripts/build_c2_packetfix.py \
+  --source /private/L2Server483.exe \
+  --output /private/L2Server_C2_485_packetfix.exe
+```
+
+Ожидаемый SHA256 результата:
+
+```text
+46BDA8BEEE36F99B25D8EA5EFB315323A92CE1A0A134F06CB4C9B1C38027C1F1
+```
+
+Генератор выполняет x86-эмуляционные проверки до записи результата. Не используйте `python -O`: защитные проверки содержат `assert`; не подставляйте уже исправленный `L2Server.exe` вместо оригинального входного файла.
+
+Сборка локального файла не устанавливает его на ВМ и не перезапускает мир. Установка выполняется отдельно в согласованное окно обслуживания по [инструкции](docs/RUNBOOK.md).
+
+## Что не хранится в GitHub
+
+- **Секреты:** пароли Administrator, SQL/SA, игровых аккаунтов, приватные ключи и локальные подключения.
+- **Данные игроков:** SQL-резервные копии, MDF/LDF, пакетные дампы и трассы, содержащие идентификаторы и игровые данные.
+- **Полные игровые дистрибутивы:** серверные EXE/DLL, клиентские ZIP/RAR, карты и ресурсы. Публикация скрипта исправления не удостоверяет права на распространение исходных бинарников.
+- **Снимок ВМ:** Git хранит инженерную часть, но не заменяет приватный backup диска и всех баз.
+
+Пароли в текущих DSN/INI/REG заменены на `__DB_PASSWORD__`. Старый первый коммит содержал тестовые реквизиты; очистка текущей версии не удаляет историю и не делает прежние значения секретными. История не переписывалась, пароли на работающей ВМ в рамках этой публикации не менялись.
+
+## Границы готовности
+
+Подтверждены работа пяти процессов, выдача Bartz, реальный формат Agree, создание/выбор персонажа и загрузка мира через клиент. Полный reboot, автоматическое восстановление после падения, игровые механики и нагрузка пока требуют отдельной приёмки.
+
+`autostart.enabled` есть на текущей ВМ, но это не доказательство успешного холодного старта. Supervisor выполняет очередь и стартовую процедуру, а не гарантированный watchdog с автоматическим перезапуском каждого упавшего процесса.
+
+Подлинность и безопасность сторонней серверной сборки и noGG-бинарников независимо не удостоверены. Изменение IP, проверка хеша и успешный вход не являются антивирусным аудитом.

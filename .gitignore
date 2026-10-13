@@ -1,19 +1,35 @@
-# Secrets and credentials
-*.pwd
+# Live credentials and local configuration
+.env
+.env.*
+!.env.example
+local.ps1
+*.secret
 *.key
-secrets/
-
-# Temporary files
-*.tmp
-*.log
-*.pml
-*.csv
-
-# Compiled files
+*.pem
+# Original game archives, generated binaries and private database/capture data
 *.exe
 *.dll
-*.obj
-
-# OS files
-Thumbs.db
-.DS_Store
+*.zip
+*.rar
+*.7z
+*.bak*
+*.mdf
+*.ldf
+*.sql
+*.etl
+*.pcap
+*.pcapng
+*.pml
+*.bin
+*.log
+packetfix-dump/
+private/
+# Python and local environments
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+# Queue and runtime output
+cmd/
+out/
+done/

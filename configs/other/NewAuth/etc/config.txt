@@ -3,7 +3,7 @@ serverExPort = 2106
 serverIntPort = 2108
 worldport = 7777
 DBConnectionNum=10
-encrypt = false
+encrypt = true
 numServerThread = 2
 numServerExThread = 2
 numServerIntThread = 2
@@ -16,17 +16,17 @@ DesApply=false
 PacketSizeType = 3
 ReadLocalServerList=false
 OneTimeLogOut=true
-CountryCode=3
-DevConnectOuter=false
+CountryCode=1
+DevConnectOuter=true
 ;change it to your WAN IP
-DevServerIP="136.234.76.201"
-;SocketTimeOut if player no Action while they in game then kick out. 
+DevServerIP=176.53.225.183
+;SocketTimeOut if player no Action while they in game then kick out.
 SocketTimeOut = 30
 SocketLimit=5000
 AcceptCallNum=1
 UseOneIOCom=false
 AcceptThread=1
-WaitingUserLimit=100
+WaitingUserLimit=1000
 dumppacket=false
 UserData=false
 UseLogD=false

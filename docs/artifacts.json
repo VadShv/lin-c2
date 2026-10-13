@@ -1,0 +1,44 @@
+{
+  "baseline_confirmed_at_msk": "2026-10-14T00:23:00+03:00",
+  "artifacts": [
+    {
+      "name": "L2Server483.exe",
+      "role": "Original input for guarded patch builder; reports protocol 481",
+      "sha256": "E4AA3F0873A2DC19B2130A6C203C0E11A338C634E84C7CCF747A662F7D9911DA",
+      "published_binary": false
+    },
+    {
+      "name": "L2Server_C2_485_packetfix.exe",
+      "role": "Installed GUI-confirmed baseline; CharSelected +16 and UserInfo +47",
+      "sha256": "46BDA8BEEE36F99B25D8EA5EFB315323A92CE1A0A134F06CB4C9B1C38027C1F1",
+      "installed": true,
+      "published_binary": false
+    },
+    {
+      "name": "L2Server_C2_485_packetfix_with_npc.exe",
+      "role": "Experimental NpcInfo +21; emulated only, NOT installed",
+      "sha256": "10124FF7F8425B2709E785A622125C88B269DEED6F19054463695DAB98C31286",
+      "installed": false,
+      "published_binary": false
+    },
+    {
+      "name": "L2Server.exe before packet fix",
+      "role": "Protocol-only backup; not the working baseline",
+      "sha256": "F813E4FD9498940147AB1C4F23B4FF37E12A7E9B029E872DB607AB7A33B4F6AC",
+      "published_binary": false
+    },
+    {
+      "name": "L2AuthD483.exe / installed L2AuthD.exe",
+      "role": "C2 format 4 server-list compatibility",
+      "sha256": "BCC0AF6150F921AEE63987D19F08D1FB83832E19CC6D37F5BA7E2D97D75934DD",
+      "installed": true,
+      "published_binary": false
+    },
+    {
+      "name": "system_C2_485_SABINE_176.53.225.183.zip",
+      "role": "Previously delivered private client overlay; only l2.ini changed",
+      "sha256": "c6048244e43ba1085d6788b1e3b9930bf380dbf7b425a1a180ca67cb65385032",
+      "published_binary": false
+    }
+  ]
+}

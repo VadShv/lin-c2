@@ -1,0 +1,11 @@
+* text=auto
+*.md text eol=lf
+*.py text eol=lf
+*.yml text eol=lf
+*.json text eol=lf
+*.ps1 text eol=crlf
+*.ini text eol=crlf
+*.INI text eol=crlf
+*.dsn text eol=crlf
+*.reg text eol=crlf
+*.bat text eol=crlf

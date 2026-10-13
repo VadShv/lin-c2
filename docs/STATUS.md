@@ -1,123 +1,82 @@
-# L2 C2 Server — Current State & Progress Log
+# L2 C2 Server: состояние и журнал
 
-## Date: 2026-10-13
+## Текущий стенд
 
-## Environment
+Работа ведётся на SABINE в Selectel, публичный IP `176.53.225.183`, внутренний IP `192.168.0.3`. Записи о старом сервере Imani и клиентском адресе `136.234.76.201` не описывают этот стенд.
 
-- **VM**: Selectel cloud, Windows Server 2019 Standard
-  - Public IP: 136.234.76.201, Internal IP: 192.168.0.3
-  - Hostname: imani
-- **SQL Server**: 2019 Express, SQLEXPRESS, port 1433, mixed mode auth
-- **DB login**: gamma (SQL auth, db_owner on all 7 databases)
-- **L2 server**: C:\L2Server\ (extracted from RAR, 7605 files)
-- **AutoIt**: C:\Program Files (x86)\AutoIt3\AutoIt3.exe
-- **PsTools**: C:\pstools\
-- **.NET 32-bit compiler**: C:\Windows\Microsoft.NET\Framework\v4.0.30319\csc.exe
+Последнее подтверждение: 14 октября 2026 года, 00:23 МСК. Пользователь подтвердил «Мир загрузился» после создания персонажа и нажатия Start; активный игровой сеанс оставлен без дальнейших перезапусков.
 
-## Completed Steps
+Рабочая цепочка: L2AuthD, Cached, L2LogD, L2Server, L2NPC; сервер Bartz. Пароли Windows и SQL в этот журнал не включены.
 
-### 1. Archive Extraction
-- RAR archive transferred to VM and extracted to C:\L2Server\
+## Исправления
 
-### 2. SQL Server Setup
-- SQL Server 2019 Express installed
-- TCP/IP enabled on port 1433
-- Mixed mode authentication enabled
-- SA password set
-- SQL Agent stopped (not? needed)
+- **AuthD:** в `NewAuth\etc\config.txt` восстановлен `serverExPort=2106`. Установочный скрипт ошибочно подставлял сюда IP-адрес; исправление регулярного выражения сохранено в локальной копии репозитория. Рабочий `L2AuthD.exe` заменён поставляемым в сборке вариантом `L2AuthD483.exe`, который выдаёт список миров по реальному запросу C2-клиента.
+- **Адреса:** межсерверные соединения используют `127.0.0.1`, `WorldId=1`. Строка Bartz в `lin2db.dbo.server` содержит `id=1`, публичный `ip=176.53.225.183`, `inner_ip=127.0.0.1`, `port=7777`.
+- **Регистрация мира:** при `SupportReconnect=true` в AuthD включён `reconnectauth=1` в L2Server. В таблицу `worldstatus` добавлена отсутствующая строка с начальным статусом `0`; после подключения мира сам AuthD изменил её на `1`.
+- **Игровой протокол:** исходный основной бинарник возвращал `419`, а вариант `L2Server483.exe` возвращает `481`. Клиентский `Engine.dll` разбирает строку `$Revision: 485 $` и отправляет это значение в ProtocolVersion. Согласование номера протокола было первым шагом, но само по себе не обеспечило совместимость входа в мир; затем исправлены форматы CharSelected и UserInfo.
+- **Запуск:** используется задача `L2Supervisor` и очередь `C:\l2work\cmd`, а не процессы, привязанные к SSH-сеансу. Флаг `autostart.enabled` создан; отдельный полный тест перезагрузки ВМ пока не выполнен.
+- **Клиент:** архив `system_C2_485_SABINE_176.53.225.183.zip` отличается от ранее выданного комплекта только файлом `system/l2.ini`. Проверены обратная расшифровка, адрес, CRC32 и целостность ZIP.
 
-### 3. Database Creation
-- 7 databases created: lin2db, lin2world, lin2comm, lin2log, lin2report, lin2user, petition
-- SQL auth login `gamma` created, mapped as db_owner on all databases
-- All schemas imported from the archive's SQL files
+## Подтверждённые проверки
 
-### 4. ODBC Configuration
-- System DSNs created in 32-bit registry (WOW6432Node) for all database names
-- Two drivers in use:
-  - `sqlsrv32.dll` (SQL Server) for: l2logd, l2cache, l2server, l2npc, L2AUTHD, etc.
-  - `msodbcsql17.dll` (ODBC Driver 17) for: lin2db, lin2world, lin2log, etc.
-- File DSNs created with absolute paths for each service
-- ODBC File DSN path set to C:\Program Files (x86)\Common Files\ODBC\Data Sources
+На промежуточном протоколе `481` сквозной сетевой тест прошёл авторизацию аккаунта, выбор Bartz, игровой криптографический обмен и получение пакета списка персонажей `13 00 00 00 00`. Персонажи тестом не создавались, счётчик персонажей равен нулю.
 
-### 5. INI Configuration
-- All .ini files configured:
-  - IPs"IPs to 127.0.0.1 (local)
-  - DevServerIP to public IP (136.234.76.201)
-  - Ports: L2LogD=3999, CacheD=2006/2008, L2Server=7777, L2AuthD!7777, AuthD=2106
-- L2LOG.INI created as copy of l2logd.ini
-- INI files also copied to C:\Windows\ for GetPrivateProfileString default path
+Первоначальный сквозной тест с протоколом `485` был успешен только с запросом списка серверов формата `0`. Пользователь сообщил об Access failed после Agree; проверка `Engine.dll` установила, что настоящий клиент запрашивает формат `4`, который старый AuthD отвергал пакетом `05 06`. Первоначальный тест не подтверждал совместимость этого шага графического клиента.
 
-### 6. Registry Configuration
-- HKLM\SOFTWARE\WOW6432Node\PROJECT_L2\L2LOGD — DSN, UID, PWD, FILEDSN, connStr, connStrBBS, DBConn
-- HKLM\SOFTWARE\WOW6432Node\PROJECT_L2\L2CACHED — DSN, UID, PWD, FILEDSN, connStr
-- HKLM\SOFTWARE\WOW6432Node\PROJECT_L2\L2SERVER — DSN, UID, PWD, posx/posy/sizex/sizey
-- HKLM\SOFTWARE\WOW6432Node\PROJECT_L2\L2NPC — DSN, UID, PWD, posx/posy/sizex/sizey
-- HKLM\SOFTWARE\WOW6432Node\NCSoft\L2AUTHD\L2Conn — FILEDSN, UID, PWD, etc.
+После замены AuthD выполнен сквозной тест с реальным форматом `4` и игровым протоколом `485`. Получены LoginOk, полноценный C2-список с адресом `176.53.225.183:7777`, PlayOk, положительный ответ на ProtocolVersion и после игрового входа пакет CharSelectionInfo `13 00 00 00 00`; контрольный XOR всех ответов AuthD прошёл проверку.
 
-### 7. Windows Configuration
-- DEP completely disabled (bcdedit /set nx AlwaysOff)
-- Windows Firewall rules for ports 2104, 7777, 2106
-- RDP enabled on port 3389
+Отдельная проверка шага Agree подтвердила поля настоящего C2-формата `cddcchhcdc`: число игроков `0`, лимит `3000`, статус `1`, kind `0`, flags `0`. После этой проверки диагностический вход отменён пакетом LoginCancel, без перехода в игровой сервер, чтобы освободить аккаунт.
 
-### 8. L2AuthD Configuration
-- encrypt = false (in config.txt)
-- DevServerIP = false (prevented strlen(NULL) crash)
-- serverexport = public IP
+Одновременно подтверждены работа процессов L2AuthD, Cached, L2LogD, L2Server и L2NPC в session 0, прослушивание `2106` и `7777`, `worldstatus(1, Bartz, 1)` и работа L2Supervisor. Позднее пользователь подтвердил создание персонажей и успешную загрузку игрового мира через графический клиент; это подтверждение не заменяет отдельную проверку боя, квестов, сохранения прогресса и восстановления после перезагрузки.
 
-## Current Blocker
+SHA256 текущего рабочего `L2Server.exe`: `46BDA8BEEE36F99B25D8EA5EFB315323A92CE1A0A134F06CB4C9B1C38027C1F1`. Резервная копия до исправления пакетов: `C:\L2Server\L2Server\L2Server.exe.bak-packet485-20261014-001502`; её SHA256: `F813E4FD9498940147AB1C4F23B4FF37E12A7E9B029E872DB607AB7A33B4F6AC`.
 
-### L2LogD Login Dialog
+Резервная копия до самого первого согласования номера протокола: `C:\L2Server\L2Server\L2Server.exe.bak-protocol481-20261013-230839`.
 
-L2LogD shows a modal "LogDB Login" dialog on startup. The dialog has:
-- File DSN field (ID 1000) — hardcoded default "linworld"
-- Login Name field (ID 1001) — empty
-- Password field (ID 1002) — empty
-- OK button (ID 1), CANCEL button (ID 7)
+SHA256 нового клиентского ZIP: `c6048244e43ba1085d6788b1e3b9930bf380dbf7b425a1a180ca67cb65385032`. Не следует использовать старый ZIP с адресом Imani.
 
-**Root cause analysis:**
+Исправлена также проверка контрольной суммы в диагностическом клиенте. Серверный `EncryptPacket` записывает XOR в предпоследний DWORD, а последний DWORD является зарезервированным хвостом; ранний тест ошибочно включал этот хвост в XOR и выдавал ложные предупреждения. Проверка теперь сравнивает XOR тела с фактическим checksum на смещении `-8`, игнорируя только последний зарезервированный DWORD, и по умолчанию использует реальный формат списка `4`.
 
-1. The string "linworld" is hardcoded in L2LogD.exe at Unicode offset 0x12216
-2. "linworld" is a relative path — FILEDSN=linworld fails because the old
-   SQL Server ODBC driver (sqlsrv32.dll) cannot resolve relative File DSN paths
-3. The error is: SQLState=HY000, Native=556, "General error: Invalid file dsn ''"
-4. Absolute paths work: FILEDSN=C:\L2Server\L2LogD\l2logd.dsn succeeds
+SHA256 рабочего `L2AuthD.exe`: `BCC0AF6150F921AEE63987D19F08D1FB83832E19CC6D37F5BA7E2D97D75934DD`. Резервная копия прежнего AuthD: `C:\L2Server\NewAuth\L2AuthD.exe.bak-20261013-233143`; замена выполнена без изменения SQL-привилегий и без изменения клиентского архива.
 
-**Dialog interaction attempts:**
+## Исправление заставки после Start
 
-- ControlSetText: appears to set text (ControlGetText confirms), but after
-  clicking OK the dialog recreates with default values
-- The dialog HWND changes after OK click (closes and reopens)
-- This does NOT prove the OK handler read the default — it may have read
-  the set value, tried to connect, and failed for a different reason
-- ODBC trace shows SQLDriverConnectW returns SQL_ERROR with no diagnostic records
+Сервер загружал персонажа из базы и отправлял игровые данные, однако их формат не соответствовал дополнительным чтениям в реальном `Engine.dll` клиента 485. В CharSelected клиент ожидал длину диагностического блока и четыре последующих DWORD, а в UserInfo дополнительные поля после основного состояния персонажа.
 
-**connStr registry value:**
-- Original: REG_BINARY, 256 bytes
-- String part: FILEDSN=linworld;UID=;PWD= (Unicode, 52 bytes)
-- Binary part: 204 bytes (C++ object state, format unknown)
-- Modifications to connStr did not change dialog default (linworld is hardcoded in EXE)
+- **CharSelected:** перед последним DWORD времени мира добавлена нулевая длина блока, после времени добавлены три нулевых DWORD. Для персонажа Freak размер пакета изменился с 243 на 259 байт; чтение по формату `Engine.dll` завершается точно на границе пакета.
+- **UserInfo:** добавлены 47 байт дополнительных полей с нулевыми значениями. Для того же персонажа размер изменился с 393 на 440 байт; проверены основные поля, party-флаг, дополнительные флаги и завершающие поля.
+- **Контроль изменения:** генератор проверяет SHA256 исходного L2Server483 и исходные машинные инструкции, добавляет отдельную секцию `.c2fix` и изменяет обработку только двух соответствующих ответов. X86-эмуляция проверила размеры, сохранение регистров, баланс стека и неизменность остальных кодов пакетов.
+- **Живой тест:** после замены бинарника получены CharSelected 259 байт, UserInfo 440 байт и данные NPC. Оба исправленных пакета разобраны по строкам форматов, извлечённым из клиентского Engine.dll, без чтения за пределами; затем пользователь сообщил, что мир загрузился.
+- **Персонажи:** существующие персонажи не удалялись и не пересоздавались. Диагностический вход не отправлял команды движения, боя или изменения инвентаря; после него был отправлен Logout.
 
-## What Works
+Дополнительное расширение NpcInfo на 21 байт подготовлено и проверено в эмуляции, но не установлено: защитная проверка обнаружила новое активное подключение пользователя, и пользователь подтвердил успешный вход в мир. Этот вариант не входит в подтверждённую рабочую конфигурацию; нельзя подменять им основной бинарник без отдельной остановки и повторной проверки.
 
-- ODBC connection from 32-bit process with absolute File DSN path: SUCCESS
-- All 7 databases accessible with gamma login
-- SQL Server listening on port 1433
-- L2AuthD starts without crash (encrypt=false, DevServerIP=false)
-- Registry auditing confirms L2LogD reads PROJECT_L2\L2LOGD key
+## Воспроизводимость
 
-## What Doesn't Work
+`scripts/build_c2_packetfix.py` по умолчанию создаёт подтверждённый бинарник с SHA256 `46BDA8...C1F1` из исходного `L2Server483.exe` с SHA256 `E4AA3F...9911DA`. Генератор требует Python-пакеты pefile, keystone-engine и unicorn; полный исходный SHA256 проверяется в коде.
 
-- FILEDSN=linworld (relative path) — driver can't resolve
-- ControlSetText across processes — may not update edit control internal buffer
-- SendMessage WM_SETTEXT across processes — hangs
-- CreateRemoteThread — hangs (possibly due to 64-bit/32-bit mismatch in earlier attempts)
-- ProcMon — driver doesn't load, PML file is 0 bytes
+Исходный `L2Server483.exe` можно передать через `--source` либо поместить рядом с генератором; его можно взять из `C:\L2Server\L2Server` на этой ВМ. Нельзя подставлять вместо исходника уже модифицированный основной `L2Server.exe`.
 
-## Next Steps
+`scripts/deploy_c2_packetfix.ps1` проверяет хеши и резервирует предыдущий файл. Если рабочая версия уже установлена, скрипт ничего не меняет и не перезапускает; при активном клиентском соединении замена запрещена.
 
-1. Controlled L2LogD launch with ODBC tracing
-2. Set absolute DSN path + credentials, verify by reading back
-3. Click OK, capture ODBC trace (return code, SQLSTATE)
-4. Determine if the service reads the set values or the hardcoded defaults
-5. If automation fails, manual RDP session to fill dialog by hand
-6. Once L2LogD starts, proceed with CacheD, L2Server, L2NPC, PetitionD
+Для повторения подтверждённого пакета не следует использовать опцию `--npc-extension`: она создаёт отдельный экспериментальный файл, а не рабочую базовую версию. Скрипты, обезличенные настройки и журнал включены в публикацию GitHub; полный сервер, клиент, базы и секреты хранятся отдельно.
+
+Не следует запускать диагностический вход через общий аккаунт `test`, пока пользователь играет этим аккаунтом: AuthD может считать это повторным входом и прервать игровой сеанс. В данный момент активный пользовательский вход сохранён; дальнейшие диагностические логины не выполняются.
+
+## Подключение
+
+1. Закрыть игру и сохранить копию текущей папки `system`.
+2. Распаковать новый архив в корневую папку установленного C2-клиента с заменой содержимого `system`.
+3. Запустить `system\l2.exe`.
+4. Войти своим аккаунтом; реквизиты передаются приватно, в публичном журнале пароль не хранится.
+5. Выбрать Bartz; создать персонажа через игровой интерфейс.
+
+Не требуется отключать антивирус целиком. Этот комплект использует ранее выбранный сторонний noGG-патч; изменения IP и тест подключения не являются аудитом безопасности его бинарников.
+
+## Восстановление и границы
+
+После подтверждённого входа пользователя рекомендуется сделать снимок диска SABINE в Selectel. Снимок ещё не создан; полная перезагрузка и автоматический запуск всей цепочки не проверены.
+
+Исправленные скрипты, обезличенные настройки и журнал подготовлены для основной ветки `main` репозитория `VadShv/lin-c2` по прямому запросу владельца. Публикация инженерной части не заменяет snapshot ВМ и приватные SQL backups.
+
+Публичными игровыми портами должны оставаться TCP `2106` и `7777`. Внутренние порты SQL, AuthD, CacheD и LogD не предназначены для открытого доступа из интернета; SSH и RDP желательно ограничить административными IP.

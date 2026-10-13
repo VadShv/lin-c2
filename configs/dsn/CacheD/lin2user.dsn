@@ -3,4 +3,4 @@ DRIVER=SQL Server
 SERVER=localhost,1433
 DATABASE=lin2user
 UID=gamma
-PWD=lineage2pwd
+PWD=__DB_PASSWORD__
